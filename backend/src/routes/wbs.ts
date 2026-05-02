@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { getWbsNodes, getWbsOverlays, getWbsNodeDetail, createWbsNode, updateWbsNode, moveWbsNode, deleteWbsNode } from '../services/wbsService.js';
+import type { WbsNode } from '../services/wbsService.js';
 import { logAudit } from '../services/auditService.js';
 import { z } from 'zod';
 import type { DecodedToken } from '../types/index.js';
@@ -40,14 +41,7 @@ export default async function wbsRoutes(fastify: FastifyInstance) {
 
     try {
       // Verify project belongs to tenant
-      const projectCheck = await fastify.pg.query(
-        'SELECT id FROM projects WHERE id = $1',
-        [projectId]
-      );
-
-      if (projectCheck.rowCount === 0) {
-        return reply.code(404).send({ error: 'Project not found' });
-      }
+      const projectCheck = await (await (await import('../services/wbsService.js')).default).getWbsNodes(projectId, tenant.slug);
 
       const nodes = await getWbsNodes(projectId, tenant.slug);
       reply.send(nodes);

@@ -19,10 +19,39 @@ const fastify = Fastify({
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:4028';
 
+// Production-ready CORS configuration
+const isProduction = process.env.NODE_ENV === 'production';
+
 fastify.register(cors, {
-  origin: CORS_ORIGIN,
+  origin: (origin, cb) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return cb(null, true);
+    
+    const allowedOrigins = CORS_ORIGIN.split(',').map(o => o.trim());
+    
+    // Allow all if wildcard
+    if (allowedOrigins.includes('*')) return cb(null, true);
+    
+    // Check against allowed origins
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (allowed === origin) return true;
+      if (allowed.includes('*') && new RegExp(allowed.replace(/\*/g, '.*')).test(origin)) return true;
+      return false;
+    });
+    
+    if (isAllowed) return cb(null, true);
+    
+    // In production, log blocked origins
+    if (isProduction) {
+      fastify.log.warn(`CORS blocked origin: ${origin}`);
+    }
+    
+    return cb(new Error('Not allowed by CORS'), false);
+  },
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Slug'],
+  exposedHeaders: ['X-Tenant-Slug'],
 });
 
 fastify.register(tenantRoutes);
