@@ -43,7 +43,6 @@ export-*.sh
 import-*.sh
 *_data.sql
 *_inserts.sql
-SUPABASE_MIGRATION.md
 
 # Docker
 docker-compose.override.yml
@@ -52,3 +51,4 @@ docker-compose.override.yml
 nul
 .opencode/
 *.lock.json
+SUPABASE_MIGRATION.md
