@@ -1,0 +1,54 @@
+# Node modules
+node_modules/
+package-lock.json
+*/node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Production build
+build/
+dist/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Environment files (sensitive!)
+.env
+.env.local
+.env.production
+backend/.env
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Vercel deployment
+.vercel/
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary files
+*.dmp
+*.sql
+*.csv
+export-*.sh
+import-*.sh
+*_data.sql
+*_inserts.sql
+SUPABASE_MIGRATION.md
+
+# Docker
+docker-compose.override.yml
+
+# Misc
+nul
+.opencode/
+*.lock.json

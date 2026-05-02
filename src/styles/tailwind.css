@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f8f9fb;
+  --foreground: #0f172a;
+  --primary: #f97316;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #475569;
+  --accent: #3b82f6;
+  --accent-foreground: #ffffff;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --border: #e2e8f0;
+  --input: #f1f5f9;
+  --ring: #f97316;
+  --radius: 8px;
+  --font-sans: 'DM Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  --status-green: #16a34a;
+  --status-green-bg: #dcfce7;
+  --status-yellow: #ca8a04;
+  --status-yellow-bg: #fef9c3;
+  --status-red: #dc2626;
+  --status-red-bg: #fee2e2;
+  --status-blue: #2563eb;
+  --status-blue-bg: #dbeafe;
+  --status-orange: #ea580c;
+  --status-orange-bg: #ffedd5;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    border-color: var(--border);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  h1, h2, h3, h4, h5, h6, p {
+    margin: 0;
+  }
+}
+
+@layer utilities {
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+  .text-primary { color: var(--primary); }
+  .text-muted-foreground { color: var(--muted-foreground); }
+  .text-card-foreground { color: var(--card-foreground); }
+  .bg-card { background-color: var(--card); }
+  .bg-muted { background-color: var(--muted); }
+  .bg-background { background-color: var(--background); }
+  .bg-primary { background-color: var(--primary); }
+  .bg-accent { background-color: var(--accent); }
+  .border-border { border-color: var(--border); }
+  .ring-primary { --tw-ring-color: var(--ring); }
+
+  .status-green { color: var(--status-green); background-color: var(--status-green-bg); }
+  .status-yellow { color: var(--status-yellow); background-color: var(--status-yellow-bg); }
+  .status-red { color: var(--status-red); background-color: var(--status-red-bg); }
+  .status-blue { color: var(--status-blue); background-color: var(--status-blue-bg); }
+  .status-orange { color: var(--status-orange); background-color: var(--status-orange-bg); }
+
+  .scrollbar-thin::-webkit-scrollbar { width: 4px; height: 4px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background-color: var(--border); border-radius: 2px; }
+
+  .scan-cell-present { background-color: var(--status-green-bg); color: var(--status-green); }
+  .scan-cell-missing { background-color: #f1f5f9; color: #94a3b8; }
+  .scan-cell-flagged { background-color: var(--status-red-bg); color: var(--status-red); }
+  .scan-cell-pending { background-color: var(--status-yellow-bg); color: var(--status-yellow); }
+}
