@@ -1,68 +1,133 @@
 'use client';
-import React, { useState } from 'react';
-import { Filter, Download, UserX, Search } from 'lucide-react';
+
+import React, { useState, useEffect } from 'react';
+import { Filter, Download, Search } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import ManualOverrideModal from './ManualOverrideModal';
-import { mockWorkerScans, ScanType, ScanStatus, WorkerScanRow } from '../data/mockAttendanceData';
+import { supabaseService, AttendanceRecord } from '@/services/supabase';
+import { useAuth } from '@/context/AuthContext';
 
-const SCAN_COLS: { key: ScanType; label: string; short: string }[] = [
-  { key: 'MORNING_IN', label: 'Morning In', short: 'M-IN' },
-  { key: 'MORNING_OUT', label: 'Morning Out', short: 'M-OUT' },
-  { key: 'AFTERNOON_IN', label: 'Aftn In', short: 'A-IN' },
-  { key: 'AFTERNOON_OUT', label: 'Aftn Out', short: 'A-OUT' },
-  { key: 'OT_IN', label: 'OT In', short: 'OT-IN' },
-  { key: 'OT_OUT', label: 'OT Out', short: 'OT-OUT' },
-];
-
-function ScanCell({ status, time, score }: { status: ScanStatus; time: string | null; score: number | null }) {
-  if (status === 'NA') {
-    return (
-      <td className="px-2 py-2.5 text-center">
-        <span className="text-xs text-zinc-700">—</span>
-      </td>
-    );
-  }
-
-  const cellClass =
-    status === 'SYNCED' ? 'scan-cell-present' :
-    status === 'FLAGGED' ? 'scan-cell-flagged' :
-    status === 'PENDING'? 'scan-cell-pending' : 'scan-cell-missing';
-
-  return (
-    <td className="px-2 py-2.5 text-center">
-      <div className={`inline-flex flex-col items-center rounded-md px-2 py-1 min-w-[52px] ${cellClass}`}>
-        <span className="text-xs font-mono font-semibold tabular-nums">
-          {time ?? '—'}
-        </span>
-        {score !== null && (
-          <span className="text-xs opacity-70">{Math.round(score * 100)}%</span>
-        )}
-      </div>
-    </td>
-  );
+interface WorkerScanSummary {
+  id: string;
+  name: string;
+  email: string;
+  project: string;
+  trade: string;
+  morningIn: AttendanceRecord | null;
+  morningOut: AttendanceRecord | null;
+  afternoonIn: AttendanceRecord | null;
+  afternoonOut: AttendanceRecord | null;
+  otIn: AttendanceRecord | null;
+  otOut: AttendanceRecord | null;
+  totalHours: number | null;
+  flag: 'GREEN' | 'YELLOW' | 'RED';
 }
 
-const flagBadge = (flag: WorkerScanRow['flag']) => {
-  if (flag === 'GREEN') return <Badge variant="green" dot>OK</Badge>;
-  if (flag === 'YELLOW') return <Badge variant="yellow" dot>Warn</Badge>;
-  if (flag === 'RED') return <Badge variant="red" dot>Alert</Badge>;
-  return null;
-};
-
 export default function AttendanceScanGrid() {
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [projectFilter, setProjectFilter] = useState('ALL');
-  const [flagFilter, setFlagFilter] = useState('ALL');
+  const [workers, setWorkers] = useState<WorkerScanSummary[]>([]);
+  const [loading, setLoading] = useState(true);
   const [overrideModal, setOverrideModal] = useState<{ open: boolean; workerId?: string; workerName?: string }>({ open: false });
 
-  const projects = ['ALL', ...Array.from(new Set(mockWorkerScans.map((w) => w.project)))];
+  useEffect(() => {
+    async function fetchAttendance() {
+      try {
+        const [workers, records] = await Promise.all([
+          supabaseService.getWorkers(user?.companyName || undefined),
+          supabaseService.getAttendanceRecords(),
+        ]);
 
-  const filtered = mockWorkerScans.filter((w) => {
-    const matchSearch = w.name.toLowerCase().includes(search.toLowerCase()) || w.trade.toLowerCase().includes(search.toLowerCase());
+        const workerScans: WorkerScanSummary[] = workers.map((w) => {
+          const workerRecords = records.filter((r) => r.worker_id === w.id);
+
+          const morningIn = workerRecords.find((r) => {
+            const hour = new Date(r.scan_time).getHours();
+            return r.scan_type === 'check_in' && hour < 12;
+          }) || null;
+
+          const morningOut = workerRecords.find((r) => {
+            const hour = new Date(r.scan_time).getHours();
+            return r.scan_type === 'check_out' && hour < 12;
+          }) || null;
+
+          const afternoonIn = workerRecords.find((r) => {
+            const hour = new Date(r.scan_time).getHours();
+            return r.scan_type === 'check_in' && hour >= 12 && hour < 17;
+          }) || null;
+
+          const afternoonOut = workerRecords.find((r) => {
+            const hour = new Date(r.scan_time).getHours();
+            return r.scan_type === 'check_out' && hour >= 12 && hour < 17;
+          }) || null;
+
+          const otIn = workerRecords.find((r) => {
+            const hour = new Date(r.scan_time).getHours();
+            return r.scan_type === 'check_in' && hour >= 17;
+          }) || null;
+
+          const otOut = workerRecords.find((r) => {
+            const hour = new Date(r.scan_time).getHours();
+            return r.scan_type === 'check_out' && hour >= 17;
+          }) || null;
+
+          const flaggedCount = workerRecords.filter((r) => r.status === 'flagged').length;
+          const flag: 'GREEN' | 'YELLOW' | 'RED' = flaggedCount > 0 ? 'RED' : 'GREEN';
+
+          return {
+            id: w.id,
+            name: w.full_name || w.email,
+            email: w.email,
+            project: 'Tower A', // TODO: Add project field to user_profiles
+            trade: 'General', // TODO: Add trade field to user_profiles
+            morningIn,
+            morningOut,
+            afternoonIn,
+            afternoonOut,
+            otIn,
+            otOut,
+            totalHours: null,
+            flag,
+          };
+        });
+
+        setWorkers(workerScans);
+      } catch (error) {
+        console.error('Error fetching attendance:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (user) {
+      fetchAttendance();
+    }
+  }, [user]);
+
+  const projects = ['ALL', ...Array.from(new Set(workers.map((w) => w.project)))];
+
+  const filtered = workers.filter((w) => {
+    const matchSearch = w.name.toLowerCase().includes(search.toLowerCase()) || w.email.toLowerCase().includes(search.toLowerCase());
     const matchProject = projectFilter === 'ALL' || w.project === projectFilter;
-    const matchFlag = flagFilter === 'ALL' || w.flag === flagFilter;
-    return matchSearch && matchProject && matchFlag;
+    return matchSearch && matchProject;
   });
+
+  const formatTime = (record: AttendanceRecord | null) => {
+    if (!record) return null;
+    return new Date(record.scan_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  };
+
+  const getStatusClass = (record: AttendanceRecord | null, verifiedClass: string, flaggedClass: string, pendingClass: string) => {
+    if (!record) return 'scan-cell-missing';
+    if (record.status === 'flagged') return flaggedClass;
+    if (record.status === 'pending') return pendingClass;
+    return verifiedClass;
+  };
+
+  if (loading) {
+    return <div className="text-center py-8 text-muted-foreground">Loading attendance data...</div>;
+  }
 
   return (
     <>
@@ -74,7 +139,7 @@ export default function AttendanceScanGrid() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search worker or trade..."
+              placeholder="Search worker or email..."
               className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none flex-1"
             />
           </div>
@@ -89,16 +154,6 @@ export default function AttendanceScanGrid() {
               {projects.map((p) => (
                 <option key={`proj-filter-${p}`} value={p}>{p === 'ALL' ? 'All Projects' : p}</option>
               ))}
-            </select>
-            <select
-              value={flagFilter}
-              onChange={(e) => setFlagFilter(e.target.value)}
-              className="bg-muted border border-border rounded-md px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-              <option value="ALL">All Status</option>
-              <option value="GREEN">Green</option>
-              <option value="YELLOW">Warning</option>
-              <option value="RED">Alert</option>
             </select>
           </div>
 
@@ -118,9 +173,9 @@ export default function AttendanceScanGrid() {
               <tr className="border-b border-border bg-zinc-900/50">
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide w-48">Worker</th>
                 <th className="text-left px-3 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">Project</th>
-                {SCAN_COLS.map((col) => (
-                  <th key={`th-${col.key}`} className="text-center px-2 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    {col.short}
+                {['M-IN', 'M-OUT', 'A-IN', 'A-OUT', 'OT-IN', 'OT-OUT'].map((col) => (
+                  <th key={`th-${col}`} className="text-center px-2 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {col}
                   </th>
                 ))}
                 <th className="text-center px-3 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">Hours</th>
@@ -137,11 +192,8 @@ export default function AttendanceScanGrid() {
                   {/* Worker */}
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2.5">
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-                        style={{ background: worker.avatarColor }}
-                      >
-                        {worker.photoInitials}
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                        {worker.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{worker.name}</p>
@@ -156,13 +208,18 @@ export default function AttendanceScanGrid() {
                   </td>
 
                   {/* Scan cells */}
-                  {SCAN_COLS.map((col) => (
-                    <ScanCell
-                      key={`cell-${worker.id}-${col.key}`}
-                      status={worker.scans[col.key].status}
-                      time={worker.scans[col.key].time}
-                      score={worker.scans[col.key].serverScore ?? worker.scans[col.key].localScore}
-                    />
+                  {[worker.morningIn, worker.morningOut, worker.afternoonIn, worker.afternoonOut, worker.otIn, worker.otOut].map((scan, i) => (
+                    <td key={`cell-${worker.id}-${i}`} className="px-2 py-2.5 text-center">
+                      {scan ? (
+                        <div className={`inline-flex flex-col items-center rounded-md px-2 py-1 min-w-[52px] ${getStatusClass(scan, 'scan-cell-present', 'scan-cell-flagged', 'scan-cell-pending')}`}>
+                          <span className="text-xs font-mono font-semibold tabular-nums">
+                            {formatTime(scan)}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-zinc-700">—</span>
+                      )}
+                    </td>
                   ))}
 
                   {/* Hours */}
@@ -173,7 +230,11 @@ export default function AttendanceScanGrid() {
                   </td>
 
                   {/* Flag */}
-                  <td className="px-3 py-2.5 text-center">{flagBadge(worker.flag)}</td>
+                  <td className="px-3 py-2.5 text-center">
+                    {worker.flag === 'GREEN' && <Badge variant="green" dot>OK</Badge>}
+                    {worker.flag === 'YELLOW' && <Badge variant="yellow" dot>Warn</Badge>}
+                    {worker.flag === 'RED' && <Badge variant="red" dot>Alert</Badge>}
+                  </td>
 
                   {/* Actions */}
                   <td className="px-4 py-2.5 text-right">
@@ -182,7 +243,6 @@ export default function AttendanceScanGrid() {
                       className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-muted border border-border rounded text-xs text-muted-foreground hover:text-foreground hover:bg-zinc-700 transition-colors"
                       title="Record manual override for this worker"
                     >
-                      <UserX size={12} />
                       Override
                     </button>
                   </td>
@@ -195,7 +255,7 @@ export default function AttendanceScanGrid() {
         {/* Footer */}
         <div className="flex items-center justify-between px-5 py-3 border-t border-border bg-zinc-900/30">
           <p className="text-xs text-muted-foreground">
-            Last updated: <span className="font-mono">09:24 AM</span> · Auto-refresh every 30s
+            Last updated: <span className="font-mono">{new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span> · Auto-refresh every 30s
           </p>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded scan-cell-present inline-block" />Verified</span>

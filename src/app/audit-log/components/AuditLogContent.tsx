@@ -1,8 +1,8 @@
 'use client';
 import React, { useState } from 'react';
-import { ClipboardList, Search, Shield, User, Settings, Database, Key } from 'lucide-react';
+import { ClipboardList, Search, Shield, User, Settings, Database, Key, Users } from 'lucide-react';
 
-type EventCategory = 'AUTH' | 'ATTENDANCE' | 'PAYROLL' | 'WORKER' | 'SYSTEM' | 'SECURITY';
+type EventCategory = 'AUTH' | 'ATTENDANCE' | 'PAYROLL' | 'WORKER' | 'SYSTEM' | 'SECURITY' | 'ROLE';
 
 interface AuditEvent {
   id: string;
@@ -25,6 +25,9 @@ const mockEvents: AuditEvent[] = [
   { id: 'AUD-0886', timestamp: '30 Apr 2026 18:00:00', actor: 'System', actorRole: 'Cron Job', category: 'PAYROLL', action: 'PAYSLIP_GENERATED', target: '47 payslips · Week 17', ipAddress: 'internal', result: 'SUCCESS' },
   { id: 'AUD-0885', timestamp: '30 Apr 2026 17:22:44', actor: 'Admin Siti', actorRole: 'Admin', category: 'WORKER', action: 'WORKER_SUSPENDED', target: 'Worker W-1004 · Ravi Nair', ipAddress: '192.168.1.12', result: 'SUCCESS' },
   { id: 'AUD-0884', timestamp: '30 Apr 2026 16:10:09', actor: 'PM Rajan', actorRole: 'Project Manager', category: 'SYSTEM', action: 'GEOFENCE_MODE_CHANGED', target: 'Tower A · WARN_ONLY → BLOCK', ipAddress: '192.168.1.45', result: 'SUCCESS' },
+  { id: 'AUD-0883', timestamp: '30 Apr 2026 15:30:22', actor: 'Admin Siti', actorRole: 'Admin', category: 'ROLE', action: 'ROLE_ASSIGNED', target: 'User u-4452 · worker → foreman', ipAddress: '192.168.1.12', result: 'SUCCESS' },
+  { id: 'AUD-0882', timestamp: '30 Apr 2026 14:18:55', actor: 'Admin Siti', actorRole: 'Admin', category: 'ROLE', action: 'ROLE_REVOKED', target: 'User u-3301 · supervisor → engineer', ipAddress: '192.168.1.12', result: 'SUCCESS' },
+  { id: 'AUD-0881', timestamp: '30 Apr 2026 11:05:40', actor: 'Admin Siti', actorRole: 'Admin', category: 'ROLE', action: 'PAY_RULE_CHANGED', target: 'Overtime rate · 1.5x → 2.0x', ipAddress: '192.168.1.12', result: 'SUCCESS' },
 ];
 
 const categoryConfig: Record<EventCategory, { icon: React.ElementType; color: string; bg: string }> = {
@@ -34,6 +37,7 @@ const categoryConfig: Record<EventCategory, { icon: React.ElementType; color: st
   WORKER: { icon: User, color: 'text-orange-600', bg: 'bg-orange-50' },
   SYSTEM: { icon: Settings, color: 'text-slate-600', bg: 'bg-slate-100' },
   SECURITY: { icon: Shield, color: 'text-red-600', bg: 'bg-red-50' },
+  ROLE: { icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },
 };
 
 export default function AuditLogContent() {
@@ -92,7 +96,7 @@ export default function AuditLogContent() {
               className="text-xs bg-muted border border-border rounded-md px-2 py-1.5 text-foreground outline-none shrink-0"
             >
               <option value="ALL">All Categories</option>
-              {(['AUTH', 'ATTENDANCE', 'PAYROLL', 'WORKER', 'SYSTEM', 'SECURITY'] as EventCategory[]).map(c => (
+              {(['AUTH', 'ATTENDANCE', 'PAYROLL', 'WORKER', 'SYSTEM', 'SECURITY', 'ROLE'] as EventCategory[]).map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>

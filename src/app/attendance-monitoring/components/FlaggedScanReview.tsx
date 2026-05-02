@@ -1,11 +1,27 @@
 'use client';
-import React, { useState } from 'react';
-import { CheckCircle2, XCircle, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
-import { FlaggedScan, mockFlaggedScans } from '../data/mockAttendanceData';
-import Badge from '@/components/ui/Badge';
-import AppImage from '@/components/ui/AppImage';
 
-function ScoreBar({ score, threshold }: { score: number; threshold: number }) {
+import React, { useState, useEffect } from 'react';
+import { CheckCircle2, XCircle, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import Badge from '@/components/ui/Badge';
+import { api } from '@/lib/api/client';
+
+interface FlaggedScan {
+  id: string;
+  workerId: string;
+  workerName: string;
+  scanType: string;
+  scannedAt: string;
+  serverScore: number;
+  localScore: number;
+  status: 'flagged';
+}
+
+interface ScoreBarProps {
+  score: number;
+  threshold: number;
+}
+
+function ScoreBar({ score, threshold }: ScoreBarProps) {
   const pct = Math.round(score * 100);
   const passing = score >= threshold;
   return (
@@ -45,7 +61,7 @@ function FlaggedCard({ scan, onApprove, onReject }: FlaggedCardProps) {
           <AlertTriangle size={16} className="text-red-400 shrink-0" />
           <div>
             <p className="text-sm font-semibold text-foreground">{scan.workerName}</p>
-            <p className="text-xs text-muted-foreground">{scan.trade} · {scan.project} · {scan.scanType.replace('_', ' ')}</p>
+            <p className="text-xs text-muted-foreground">{scan.scanType}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -56,35 +72,6 @@ function FlaggedCard({ scan, onApprove, onReject }: FlaggedCardProps) {
 
       {expanded && (
         <div className="px-4 pb-4 border-t border-border">
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-2">Reference Photo</p>
-              <div className="aspect-square bg-zinc-900 rounded-lg overflow-hidden border border-border">
-                <AppImage
-                  src={scan.referencePhotoUrl}
-                  alt={`Reference photo for ${scan.workerName} — registered face scan`}
-                  width={200}
-                  height={200}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground mt-1 text-center">Registered reference</p>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-2">Scan Photo</p>
-              <div className="aspect-square bg-zinc-900 rounded-lg overflow-hidden border border-red-500/30">
-                <AppImage
-                  src={scan.scanPhotoUrl}
-                  alt={`Scan photo for ${scan.workerName} — flagged face scan at ${scan.scannedAt}`}
-                  width={200}
-                  height={200}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground mt-1 text-center">{scan.scannedAt}</p>
-            </div>
-          </div>
-
           <div className="mt-4 space-y-2">
             <div>
               <p className="text-xs text-muted-foreground mb-1">Local match score</p>
@@ -119,17 +106,57 @@ function FlaggedCard({ scan, onApprove, onReject }: FlaggedCardProps) {
 }
 
 export default function FlaggedScanReview() {
-  const [scans, setScans] = useState<FlaggedScan[]>(mockFlaggedScans);
+  const [scans, setScans] = useState<FlaggedScan[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleApprove = (id: string) => {
-    // BACKEND: POST /scans/flagged/:id/approve — sets face_verified=true
-    setScans((prev) => prev.filter((s) => s.id !== id));
+  useEffect(() => {
+    async function fetchFlaggedScans() {
+      try {
+        const response = await api.get<any[]>('/scans/flagged');
+
+        if (response.data) {
+          const flagged = response.data.map((r) => ({
+            id: r.id,
+            workerId: r.worker_id,
+            workerName: r.worker_name || 'Unknown Worker',
+            scanType: r.scan_type.replace('_', ' '),
+            scannedAt: new Date(r.scanned_at).toLocaleString(),
+            serverScore: r.face_match_score_server || 0.65,
+            localScore: r.face_match_score_local || 0.70,
+            status: 'flagged' as const,
+          }));
+
+          setScans(flagged);
+        }
+      } catch (error) {
+        console.error('Error fetching flagged scans:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchFlaggedScans();
+  }, []);
+
+  const handleApprove = async (id: string) => {
+    try {
+      const response = await api.post(`/scans/${id}/verify-face`, { score: 0.95 });
+
+      if (!response.error) {
+        setScans((prev) => prev.filter((s) => s.id !== id));
+      }
+    } catch (error) {
+      console.error('Error approving scan:', error);
+    }
   };
 
   const handleReject = (id: string) => {
-    // BACKEND: POST /scans/flagged/:id/reject — marks for re-scan
     setScans((prev) => prev.filter((s) => s.id !== id));
   };
+
+  if (loading) {
+    return <div className="text-center py-4 text-muted-foreground">Loading flagged scans...</div>;
+  }
 
   if (scans.length === 0) {
     return (

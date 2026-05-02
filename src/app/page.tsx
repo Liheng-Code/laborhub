@@ -1,6 +1,6 @@
 import React from 'react';
-import { redirect } from 'next/navigation';
+import { RootRedirect } from '@/components/RootRedirect';
 
 export default function RootPage() {
-  redirect('/attendance-monitoring');
+  return <RootRedirect />;
 }
